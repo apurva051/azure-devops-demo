@@ -6,6 +6,14 @@ trigger:
 pool:
   vmImage: 'ubuntu-latest'
 
+variables:
+  dockerRegistryServiceConnection: 'sc-azure-acr-devops-demo'
+  imageRepository: 'azure-demo'
+  containerRegistry: 'azuredevopsdemo.azurecr.io'
+  dockerfilePath: '$(Build.SourcesDirectory)/Dockerfile'
+  tag: '$(Build.BuildId)'
+
+
 stages:
   - stage: Build
     displayName: 'Build Application'
@@ -47,6 +55,26 @@ stages:
               failTaskOnFailedTests: true
             condition: succeededOrFailed()
             displayName: 'Publish Test Results'
+
+  - stage: PublishImage
+    displayName: 'Build and Publish Docker Image'
+    dependsOn: Test
+    condition: succeeded()
+    jobs:
+      - job: DockerBuildAndPush
+        displayName: Publish Image to ACR
+        steps:
+          - task: Docker@2
+            displayName: Build and Push Image
+            inputs:
+              command: buildAndPush
+              containerRegistry: '$(dockerRegistryServiceConnection)'
+              repository: '$(imageRepository)'
+              dockerfile: '$(dockerfilePath)'
+              buildContext: '$(Build.SourcesDirectory)'
+              tags: |
+                $(tag)
+                latest
 
   - stage: Deploy
     displayName: 'Deployment Validation'
